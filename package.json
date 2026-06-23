@@ -1,0 +1,16 @@
+{
+  "name": "discord-nuke-bot",
+  "version": "1.0.0",
+  "description": "Discord bot to mass-delete channels and roles",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.15.3",
+    "@discordjs/voice": "^0.17.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
